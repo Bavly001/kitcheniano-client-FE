@@ -2,13 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight } from 'lucide-react';
+import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Lock } from 'lucide-react';
 import { useCartStore } from '../store/cart.store';
-import { formatCurrency } from '../lib/utils';
+import { useAuthStore } from '../store/auth.store';
+import { formatCurrency, resolveImageUrl } from '../lib/utils';
 
 export default function CartDrawer() {
   const { items, isOpen, toggleCart, updateQuantity, removeItem, clearCart, getSubtotal, getItemCount } =
     useCartStore();
+  const { isAuthenticated } = useAuthStore();
 
   if (!isOpen) return null;
 
@@ -71,9 +73,9 @@ export default function CartDrawer() {
               items.map((item) => (
                 <div key={item.menuItemId} className="py-4 first:pt-0 last:pb-0 flex gap-4">
                   <div className="w-16 h-16 rounded-xl bg-stone-100 border border-stone-200/80 overflow-hidden shrink-0 flex items-center justify-center">
-                    {item.imageUrl ? (
+                    {resolveImageUrl(item.imageUrl) ? (
                       <img
-                        src={item.imageUrl}
+                        src={resolveImageUrl(item.imageUrl)!}
                         alt={item.name}
                         className="w-full h-full object-cover"
                       />
@@ -155,6 +157,12 @@ export default function CartDrawer() {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
+              {!isAuthenticated && (
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-stone-500 pt-0.5">
+                  <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span>Account sign-in required to submit order</span>
+                </div>
+              )}
             </div>
           )}
         </div>

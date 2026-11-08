@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShoppingBag, Plus, Minus, Trash2, ArrowRight, ShieldCheck, Clock, Sparkles } from 'lucide-react';
 import { useCartStore } from '../../store/cart.store';
-import { formatCurrency } from '../../lib/utils';
+import { formatCurrency, resolveImageUrl } from '../../lib/utils';
 
 export default function CartPage() {
   const router = useRouter();
@@ -72,8 +72,8 @@ export default function CartPage() {
               <div key={item.menuItemId} className="py-5 first:pt-0 last:pb-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="w-20 h-20 rounded-2xl bg-stone-100 border border-stone-200/80 overflow-hidden shrink-0 flex items-center justify-center">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    {resolveImageUrl(item.imageUrl) ? (
+                      <img src={resolveImageUrl(item.imageUrl)!} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
                       <ShoppingBag className="w-7 h-7 text-stone-300" />
                     )}
@@ -193,6 +193,10 @@ export default function CartPage() {
             <span>Proceed to Checkout</span>
             <ArrowRight className="w-4 h-4" />
           </button>
+
+          <div className="text-[11px] text-stone-500 text-center font-medium">
+            Account sign-in or registration required to submit order
+          </div>
 
           <div className="pt-4 border-t border-stone-100 space-y-2 text-[11px] text-stone-400">
             <div className="flex items-center gap-2">

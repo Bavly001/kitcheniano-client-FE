@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { X, ShoppingBag, Plus, Minus, Check, Sparkles } from 'lucide-react';
 import { MenuItemData } from './DishCard';
 import { useCartStore } from '../store/cart.store';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, resolveImageUrl } from '../lib/utils';
 
 interface DishModalProps {
   dish: MenuItemData | null;
@@ -48,9 +48,9 @@ export default function DishModal({ dish, onClose }: DishModalProps) {
 
           {/* Dish Image */}
           <div className="relative aspect-[16/10] bg-stone-100 overflow-hidden">
-            {dish.imageUrl ? (
+            {resolveImageUrl(dish.imageUrl) ? (
               <img
-                src={dish.imageUrl}
+                src={resolveImageUrl(dish.imageUrl)!}
                 alt={dish.name}
                 className="w-full h-full object-cover"
               />

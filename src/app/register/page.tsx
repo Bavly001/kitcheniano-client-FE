@@ -1,15 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ChefHat, Mail, Lock, User, Phone, MapPin, ArrowRight, AlertCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChefHat, Mail, Lock, User, Phone, MapPin, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
+import { getAuthRedirectTarget, buildAuthRedirectLink } from '../../lib/checkout';
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams?.get('redirect');
+
   const { setAuth } = useAuthStore();
   const { syncWithBackend } = useCartStore();
 
@@ -38,7 +42,8 @@ export default function RegisterPage() {
       if (data.token && data.client) {
         setAuth(data.token, data.client);
         await syncWithBackend().catch(() => {});
-        router.push('/menu');
+        const destination = getAuthRedirectTarget(redirectParam);
+        router.push(destination);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Registration failed. Please check your information.');
@@ -61,6 +66,13 @@ export default function RegisterPage() {
             Enjoy faster checkout, saved delivery addresses, and real-time live kitchen tracking.
           </p>
         </div>
+
+        {redirectParam === '/checkout' && (
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2.5">
+            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Create your account to complete and track your pending order.</span>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2.5 animate-in fade-in">
@@ -171,11 +183,28 @@ export default function RegisterPage() {
 
         <div className="text-center pt-4 border-t border-stone-100 text-xs text-stone-500">
           Already have an account?{' '}
-          <Link href="/login" className="font-semibold text-brand-600 hover:text-brand-700">
+          <Link
+            href={buildAuthRedirectLink('/login', redirectParam)}
+            className="font-semibold text-brand-600 hover:text-brand-700"
+          >
             Sign In here
           </Link>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[85vh] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

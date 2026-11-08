@@ -17,11 +17,15 @@ import {
   Truck,
   Store,
   Clock,
+  Lock,
+  LogIn,
+  UserPlus,
 } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
 import { formatCurrency } from '../../lib/utils';
+import { validateCheckoutAuth } from '../../lib/checkout';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -76,30 +80,15 @@ export default function CheckoutPage() {
     setErrorMsg('');
 
     try {
-      // 1. If customer is not authenticated, register or auto-sign in
-      let authToken = token;
-      if (!isAuthenticated || !authToken) {
-        // Auto-register guest account so orders can be tracked and linked
-        const guestEmail = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@kitcheniano-guest.local`;
-        const tempPassword = `Pass_${Date.now()}!`;
-        const regData = await apiClient('/client/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: guestEmail,
-            password: tempPassword,
-            firstName: name.split(' ')[0] || 'Customer',
-            lastName: name.split(' ').slice(1).join(' ') || 'Guest',
-            phone,
-            address: orderType === 'delivery' ? address : undefined,
-          }),
-        });
-        if (regData.token && regData.client) {
-          setAuth(regData.token, regData.client);
-          authToken = regData.token;
-        }
+      // 1. Enforce strict customer authentication gate
+      const authValidation = validateCheckoutAuth(isAuthenticated, token, client?.id);
+      if (!authValidation.allowed) {
+        setErrorMsg(authValidation.error || 'Please sign in or create an account to complete your order.');
+        setLoading(false);
+        return;
       }
 
-      // 2. Submit order payload
+      // 2. Submit order payload bound to verified customer ID
       const orderPayload = {
         customerName: name,
         customerPhone: phone,
@@ -112,7 +101,7 @@ export default function CheckoutPage() {
       const res = await apiClient('/client/orders', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(orderPayload),
       });
@@ -199,14 +188,63 @@ export default function CheckoutPage() {
                 Contact & Delivery Details
               </h2>
 
-              {!isAuthenticated && (
-                <div className="p-3 bg-amber-50 rounded-xl text-xs text-amber-800 border border-amber-200/60 flex items-center justify-between">
-                  <span>Already have an account? Sign in for instant checkout.</span>
-                  <Link href="/login" className="font-bold underline text-brand-700 hover:text-brand-800">
-                    Sign In
-                  </Link>
+              {/* Customer Account Status & Verification Gate */}
+              {!isAuthenticated ? (
+                <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-5 space-y-3 shadow-2xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-sm text-stone-900">
+                        Sign In or Register Required to Place Order
+                      </h3>
+                      <p className="text-xs text-stone-600 leading-relaxed">
+                        To guarantee your order is tracked and linked to your verified customer ID, please sign in or register before completing your order.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 pt-1 sm:pl-13">
+                    <Link
+                      href="/login?redirect=/checkout"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs shadow-xs transition-colors"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Sign In</span>
+                    </Link>
+                    <Link
+                      href="/register?redirect=/checkout"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 font-bold text-xs shadow-2xs transition-colors"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-stone-500" />
+                      <span>Create Account</span>
+                    </Link>
+                  </div>
                 </div>
-              )}
+              ) : client ? (
+                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 flex items-center justify-between text-xs shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-emerald-950">
+                        Ordering as {client.firstName} {client.lastName}
+                      </div>
+                      <div className="text-emerald-700 text-[11px] font-medium">
+                        {client.email} &bull; Verified Customer ID #{client.id}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => useAuthStore.getState().logout()}
+                    className="text-[11px] font-semibold text-stone-500 hover:text-stone-700 underline ml-2"
+                  >
+                    Switch account
+                  </button>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -351,14 +389,35 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-brand-500/25 flex items-center justify-center gap-2 transition-all"
-            >
-              <span>{loading ? 'Submitting to Kitchen...' : `Place Order • ${formatCurrency(orderTotal)}`}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {!isAuthenticated ? (
+              <div className="space-y-3">
+                <Link
+                  href="/login?redirect=/checkout"
+                  className="w-full py-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-md shadow-brand-500/25 flex items-center justify-center gap-2 transition-all text-center"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Sign In to Place Order • {formatCurrency(orderTotal)}</span>
+                </Link>
+                <div className="text-center text-xs text-stone-500">
+                  New customer?{' '}
+                  <Link
+                    href="/register?redirect=/checkout"
+                    className="font-bold text-brand-600 hover:text-brand-700 underline"
+                  >
+                    Create an account
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-brand-500/25 flex items-center justify-center gap-2 transition-all"
+              >
+                <span>{loading ? 'Submitting to Kitchen...' : `Place Order • ${formatCurrency(orderTotal)}`}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-stone-400">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />

@@ -24,3 +24,18 @@ export function formatDate(dateString: string | Date): string {
     hour12: true,
   }).format(d);
 }
+
+export function resolveImageUrl(imageUrl?: string | null): string | null {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+  const trimmed = imageUrl.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  const backendBase =
+    process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:4000';
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${backendBase}${cleanPath}`;
+}

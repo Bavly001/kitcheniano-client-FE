@@ -1,15 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ChefHat, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChefHat, Mail, Lock, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
+import { getAuthRedirectTarget, buildAuthRedirectLink } from '../../lib/checkout';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams?.get('redirect');
+
   const { setAuth } = useAuthStore();
   const { syncWithBackend } = useCartStore();
 
@@ -33,7 +37,8 @@ export default function LoginPage() {
         setAuth(data.token, data.client);
         // Sync local guest cart items to backend client_carts
         await syncWithBackend().catch(() => {});
-        router.push('/menu');
+        const destination = getAuthRedirectTarget(redirectParam);
+        router.push(destination);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid email or password. Please try again.');
@@ -53,9 +58,16 @@ export default function LoginPage() {
             Welcome Back
           </h1>
           <p className="text-xs text-stone-500 font-light">
-            Sign in to track orders, manage saved addresses, and cloud-sync your basket.
+            Sign in to track orders, manage saved addresses, and complete your order.
           </p>
         </div>
+
+        {redirectParam === '/checkout' && (
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2.5">
+            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Please sign in to complete and link your pending order.</span>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2.5 animate-in fade-in">
@@ -108,15 +120,32 @@ export default function LoginPage() {
         <div className="text-center pt-4 border-t border-stone-100 text-xs text-stone-500 space-y-2">
           <p>
             Don't have an account yet?{' '}
-            <Link href="/register" className="font-semibold text-brand-600 hover:text-brand-700">
+            <Link
+              href={buildAuthRedirectLink('/register', redirectParam)}
+              className="font-semibold text-brand-600 hover:text-brand-700"
+            >
               Create an account
             </Link>
           </p>
           <div className="p-3 bg-stone-50 rounded-xl text-[11px] text-stone-500 border border-stone-200/60 text-left">
-            <strong>Customer Notice:</strong> You can also browse and order as a guest. Accounts allow saving multiple delivery addresses and real-time live SMS/SSE tracking.
+            <strong>Customer Notice:</strong> All orders are securely bound to your verified customer profile so you can track real-time kitchen status updates.
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[80vh] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

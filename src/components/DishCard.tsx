@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { ShoppingBag, Check, Plus, Eye, Sparkles } from 'lucide-react';
 import { useCartStore } from '../store/cart.store';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, resolveImageUrl } from '../lib/utils';
 
 export interface MenuItemData {
   id: number;
@@ -38,9 +38,9 @@ export default function DishCard({ dish, onOpenModal }: DishCardProps) {
     >
       {/* Image Container */}
       <div className="relative aspect-[16/11] bg-stone-100 overflow-hidden">
-        {dish.imageUrl ? (
+        {resolveImageUrl(dish.imageUrl) ? (
           <img
-            src={dish.imageUrl}
+            src={resolveImageUrl(dish.imageUrl)!}
             alt={dish.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
