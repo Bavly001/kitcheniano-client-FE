@@ -30,12 +30,21 @@ export function resolveImageUrl(imageUrl?: string | null): string | null {
   const trimmed = imageUrl.trim();
   if (!trimmed) return null;
 
+  const backendBase = (
+    process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    ''
+  ).replace(/\/$/, '');
+
+  // If URL has localhost:4000 and a different backend base is configured in production, swap to it
+  if (backendBase && trimmed.startsWith('http://localhost:4000')) {
+    return trimmed.replace('http://localhost:4000', backendBase);
+  }
+
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
 
-  const backendBase =
-    process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:4000';
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return `${backendBase}${cleanPath}`;
+  return backendBase ? `${backendBase}${cleanPath}` : cleanPath;
 }

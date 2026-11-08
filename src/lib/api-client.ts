@@ -3,7 +3,7 @@
 // ==============================================================================
 import { useAuthStore } from '../store/auth.store';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
@@ -46,7 +46,7 @@ export async function apiClient<T = any>(
 
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
-    'x-organization-id': organizationId || 'org_8492a158b',
+    'x-organization-id': organizationId || process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '',
     ...(headers as Record<string, string>),
   };
 

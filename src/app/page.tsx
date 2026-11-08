@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import {
   ChefHat,
   ArrowRight,
@@ -14,34 +15,37 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useCartStore } from '../store/cart.store';
+import { apiClient } from '../lib/api-client';
+import { resolveImageUrl, formatCurrency } from '../lib/utils';
+import { MenuItemData } from '../components/DishCard';
 
-const FEATURED_DISHES = [
+const FALLBACK_FEATURED_DISHES = [
   {
-    id: 1,
-    name: 'Greek Artisan Salad',
-    category: 'Starters',
-    price: 12.5,
-    description: 'Crisp barrel-aged feta, heirloom cherry tomatoes, Kalamata olives, oregano vinaigrette.',
-    imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80',
-    tag: 'Chef Special',
-  },
-  {
-    id: 2,
-    name: 'Margherita Hearth Pizza',
-    category: 'Mains',
-    price: 18.0,
-    description: 'Slow-fermented 48h sourdough, San Marzano D.O.P. sauce, buffalo mozzarella, fresh basil.',
-    imageUrl: 'https://images.unsplash.com/photo-1604382355076-af4b0eb60143?auto=format&fit=crop&w=600&q=80',
+    id: 3,
+    name: 'Margherita Pizza',
+    category: 'Wood-Fired Pizza',
+    price: 12.0,
+    description: 'Classic Neapolitan pizza with plum tomato sauce, fresh mozzarella, and olive oil.',
+    imageUrl: '/uploads/b2/menu-items%2F1794152051826-6d2d72f961a6712a.jpg',
     tag: 'Bestseller',
   },
   {
-    id: 3,
+    id: 10,
+    name: 'Quattro Formaggi Pizza',
+    category: 'Wood-Fired Pizza',
+    price: 15.5,
+    description: 'Artisan blend of fior di latte mozzarella, gorgonzola dolce, aged parmigiano-reggiano, and ricotta.',
+    imageUrl: '/uploads/b2/menu-items%2F1794153089841-26a26c2d5504d7f4.jpg',
+    tag: 'Chef Special',
+  },
+  {
+    id: 12,
     name: 'Truffle Mushroom Risotto',
-    category: 'Mains',
-    price: 22.5,
-    description: 'Carnaroli rice, wild chanterelle mushrooms, black truffle carpaccio, 24-month Parmigiano.',
-    imageUrl: 'https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=600&q=80',
-    tag: 'Artisan',
+    category: 'Artisan Selection',
+    price: 18.0,
+    description: 'Creamy Carnaroli arborio rice slowly simmered in white wine broth with forest mushrooms and black truffle butter.',
+    imageUrl: '/uploads/b2/menu-items%2F1794153091746-3dce8e19485a1d09.jpg',
+    tag: 'Seasonal Fresh',
   },
 ];
 
@@ -72,7 +76,56 @@ const REVIEWS = [
 export default function HomePage() {
   const { addItem, toggleCart } = useCartStore();
 
-  const handleQuickAdd = (dish: (typeof FEATURED_DISHES)[0]) => {
+  // Load real dishes dynamically from client menu API
+  const { data } = useQuery<{ items: MenuItemData[] }>({
+    queryKey: ['client-menu-featured'],
+    queryFn: () => apiClient('/client/menu'),
+  });
+
+  const featuredDishes = useMemo(() => {
+    if (data?.items && data.items.length > 0) {
+      const seen = new Set<string>();
+      const unique = data.items.filter((item) => {
+        const lower = item.name.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      });
+
+      return unique.slice(0, 3).map((item, idx) => {
+        const lower = item.name.toLowerCase();
+        const category = lower.includes('pizza')
+          ? 'Wood-Fired Pizza'
+          : lower.includes('salad')
+          ? 'Fresh Starters'
+          : lower.includes('burger')
+          ? 'Artisan Mains'
+          : 'Artisan Selection';
+
+        const tag = idx === 0 ? 'Bestseller' : idx === 1 ? 'Chef Special' : 'Artisan Choice';
+
+        return {
+          id: item.id,
+          name: item.name,
+          category,
+          price: Number(item.price),
+          description: item.description,
+          imageUrl: item.imageUrl || FALLBACK_FEATURED_DISHES[idx % FALLBACK_FEATURED_DISHES.length].imageUrl,
+          tag,
+        };
+      });
+    }
+
+    return FALLBACK_FEATURED_DISHES;
+  }, [data]);
+
+  const handleQuickAdd = (dish: {
+    id: number;
+    name: string;
+    price: number;
+    description: string;
+    imageUrl?: string | null;
+  }) => {
     addItem(dish, 1);
     toggleCart(true);
   };
@@ -185,22 +238,28 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {FEATURED_DISHES.map((dish) => (
+          {featuredDishes.map((dish) => (
             <div
               key={dish.id}
               className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
             >
               <div className="relative aspect-[16/10] bg-stone-100 overflow-hidden">
-                <img
-                  src={dish.imageUrl}
-                  alt={dish.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+                {resolveImageUrl(dish.imageUrl) ? (
+                  <img
+                    src={resolveImageUrl(dish.imageUrl)!}
+                    alt={dish.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-stone-300">
+                    <ShoppingBag className="w-10 h-10 stroke-1" />
+                  </div>
+                )}
                 <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-sm text-stone-800 text-[11px] font-bold shadow-xs">
                   {dish.tag}
                 </span>
                 <span className="absolute bottom-3 right-3 px-3 py-1 rounded-xl bg-stone-900/85 backdrop-blur-sm text-white text-sm font-bold">
-                  ${dish.price.toFixed(2)}
+                  {formatCurrency(dish.price)}
                 </span>
               </div>
 

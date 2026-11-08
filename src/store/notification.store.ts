@@ -95,7 +95,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     set({ activeToast: null });
   },
 
-  connectSSE: (token: string, orgId = 'org_8492a158b') => {
+  connectSSE: (token: string, orgId?: string) => {
     if (typeof window === 'undefined') return () => {};
 
     // Close any prior connection
@@ -103,7 +103,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
       eventSourceInstance.close();
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
     const streamUrl = `${apiUrl}/client/notifications/stream?token=${encodeURIComponent(token)}`;
 
     try {

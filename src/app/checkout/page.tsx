@@ -33,22 +33,12 @@ export default function CheckoutPage() {
   const { items, getSubtotal, clearCart } = useCartStore();
 
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [showCustomAddress, setShowCustomAddress] = useState(false);
+  const [customAddress, setCustomAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card_on_delivery'>('cash');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Prefill authenticated client info
-  useEffect(() => {
-    if (client) {
-      setName(`${client.firstName} ${client.lastName}`.trim());
-      setPhone(client.phone || '');
-      setAddress(client.address || '');
-    }
-  }, [client]);
 
   const subtotal = getSubtotal();
   const deliveryFee = orderType === 'delivery' ? (subtotal > 35 || subtotal === 0 ? 0 : 3.5) : 0;
@@ -88,11 +78,21 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 2. Submit order payload bound to verified customer ID
+      const effectiveAddress = showCustomAddress && customAddress.trim()
+        ? customAddress.trim()
+        : client?.address || '';
+
+      if (orderType === 'delivery' && !effectiveAddress) {
+        setErrorMsg('Please provide a delivery address.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Submit order payload bound to verified customer sign-up profile
       const orderPayload = {
-        customerName: name,
-        customerPhone: phone,
-        customerAddress: orderType === 'delivery' ? address : undefined,
+        customerName: client ? `${client.firstName} ${client.lastName}`.trim() : '',
+        customerPhone: client?.phone || '',
+        customerAddress: orderType === 'delivery' ? effectiveAddress : undefined,
         type: orderType,
         notes: notes ? `${notes} [Payment: ${paymentMethod}]` : `[Payment: ${paymentMethod}]`,
         items: items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
@@ -182,10 +182,10 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Contact Information */}
+            {/* Contact & Delivery Details */}
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200/80 shadow-xs space-y-4">
               <h2 className="font-serif font-bold text-xl text-stone-900">
-                Contact & Delivery Details
+                Delivery & Contact Information
               </h2>
 
               {/* Customer Account Status & Verification Gate */}
@@ -222,89 +222,89 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               ) : client ? (
-                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 flex items-center justify-between text-xs shadow-2xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-emerald-950">
-                        Ordering as {client.firstName} {client.lastName}
+                <div className="space-y-4">
+                  <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-3">
+                    <div className="flex items-center justify-between pb-3 border-b border-stone-200/60">
+                      <div className="flex items-center gap-2 text-xs font-bold text-stone-800">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>Verified Account Details</span>
                       </div>
-                      <div className="text-emerald-700 text-[11px] font-medium">
-                        {client.email} &bull; Verified Customer ID #{client.id}
+                      <button
+                        type="button"
+                        onClick={() => useAuthStore.getState().logout()}
+                        className="text-[11px] font-medium text-stone-400 hover:text-stone-700 underline"
+                      >
+                        Not you? Switch account
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="text-[11px] font-medium text-stone-400 block mb-0.5">Recipient</span>
+                        <span className="font-semibold text-stone-900 flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-stone-400" />
+                          {client.firstName} {client.lastName}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-stone-400 block mb-0.5">Phone Number</span>
+                        <span className="font-semibold text-stone-900 flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-stone-400" />
+                          {client.phone || 'On file'}
+                        </span>
                       </div>
                     </div>
+
+                    {orderType === 'delivery' && (
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-stone-400">Delivery Address</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowCustomAddress(!showCustomAddress)}
+                            className="text-[11px] text-brand-600 hover:text-brand-700 font-semibold"
+                          >
+                            {showCustomAddress ? 'Use saved address' : 'Deliver to different address'}
+                          </button>
+                        </div>
+
+                        {!showCustomAddress ? (
+                          <div className="p-3 rounded-xl bg-white border border-stone-200/80 text-xs font-medium text-stone-800 flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+                            <span>{client.address || 'No address saved yet. Click to enter an address.'}</span>
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={customAddress}
+                            onChange={(e) => setCustomAddress(e.target.value)}
+                            placeholder="Enter alternate delivery address..."
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-brand-500 bg-white"
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {orderType === 'pickup' && (
+                      <div className="p-3 rounded-xl bg-white border border-stone-200/80 text-xs text-stone-700 flex items-center gap-2">
+                        <Store className="w-4 h-4 text-brand-600 shrink-0" />
+                        <span>Pickup at Kitcheniano Storefront • Ready in ~15–20 mins</span>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => useAuthStore.getState().logout()}
-                    className="text-[11px] font-semibold text-stone-500 hover:text-stone-700 underline ml-2"
-                  >
-                    Switch account
-                  </button>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-stone-700">Kitchen Instructions (Optional)</label>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="e.g. Leave on doorstep, sauce on side, extra napkins..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-brand-500 bg-stone-50/50 resize-none"
+                    />
+                  </div>
                 </div>
               ) : null}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-700">Recipient Name *</label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Jane Doe"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-brand-500 bg-stone-50/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-700">Phone Number *</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 (555) 234-5678"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-brand-500 bg-stone-50/50"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {orderType === 'delivery' && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-700">Delivery Street Address *</label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      required
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="142 Downtown Culinary Ave, Apt 4B"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-brand-500 bg-stone-50/50"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700">Kitchen Instructions (Optional)</label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. Leave on doorstep, sauce on side, extra napkins..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-brand-500 bg-stone-50/50 resize-none"
-                />
-              </div>
             </div>
 
             {/* Payment Options */}

@@ -2,6 +2,9 @@
 const nextConfig = {
   // Output standalone directory for minimal Docker production images
   output: 'standalone',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -21,6 +24,20 @@ const nextConfig = {
         hostname: 'backend',
         port: '4000',
         pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'kitcheniano-dashboard-be.onrender.com',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.onrender.com',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.backblazeb2.com',
       },
       {
         protocol: 'https',

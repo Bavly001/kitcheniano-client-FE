@@ -30,14 +30,14 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       client: null,
-      organizationId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || 'org_8492a158b',
+      organizationId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '',
       isAuthenticated: false,
 
       setAuth: (token, client) =>
         set({
           token,
           client,
-          organizationId: client.organizationId || process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || 'org_8492a158b',
+          organizationId: client.organizationId || process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '',
           isAuthenticated: true,
         }),
 
